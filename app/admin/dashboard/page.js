@@ -45,6 +45,13 @@ export default function DashboardPage() {
 
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Dashboard</h1>
+      <a
+      href="/scan"
+      className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+    >
+      Scanner
+      
+    </a>
           <a
             href="/admin/generate"
             className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"

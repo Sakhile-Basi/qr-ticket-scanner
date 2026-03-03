@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-export function middleware(request) {
+export function proxy(request) {
   const authCookie = request.cookies.get('admin_auth')
   const isLoginPage = request.nextUrl.pathname === '/admin/login'
 
