@@ -26,10 +26,14 @@ export default function DashboardPage() {
   }, [])
 
   const fetchTickets = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false })
+ 
+    console.log('tickets data:',data)
+    console.log('tickets error:',error)
+
     setTickets(data || [])
     setLoading(false)
   }
