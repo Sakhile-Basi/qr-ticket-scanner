@@ -1,134 +1,275 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function DashboardPage() {
-  const [tickets, setTickets] = useState([])
-  const [loading, setLoading] = useState(true)
+    const [events, setEvents] = useState([])
+    const [profile, setProfile] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [showCreate, setShowCreate] = useState(false)
+    const [eventName, setEventName] = useState('')
+    const [creating, setCreating] = useState(false)
+    const [error, setError] = useState(null)
 
-  useEffect(() => {
-    fetchTickets()
+    const router = useRouter()
+    const supabase = createClient()
 
-    const channel = supabase
-      .channel('tickets-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setTickets(prev => [payload.new, ...prev])
+    useEffect(() => {
+        loadDashboard()
+    }, [])
+
+    async function loadDashboard() {
+        setLoading(true)
+        setError(null)
+
+        const {
+            data: { user },
+            error: userError,
+        } = await supabase.auth.getUser()
+
+        if (userError || !user) {
+            router.push('/admin/login')
+            return
         }
-        if (payload.eventType === 'UPDATE') {
-          setTickets(prev => prev.map(t => t.id === payload.new.id ? payload.new : t))
+
+        const [{ data: profileData, error: profileError }, { data: eventData, error: eventError }] =
+            await Promise.all([
+                supabase
+                    .from('profiles')
+                    .select('id, full_name')
+                    .eq('id', user.id)
+                    .single(),
+
+                supabase
+                    .from('events')
+                    .select('id, name, status, poster_url, created_at')
+                    .order('created_at', { ascending: false }),
+            ])
+
+        if (profileError) {
+            setError(profileError.message)
+        } else {
+            setProfile(profileData)
         }
-      })
-      .subscribe()
 
-    return () => supabase.removeChannel(channel)
-  }, [])
+        if (eventError) {
+            setError(eventError.message)
+        } else {
+            setEvents(eventData || [])
+        }
 
-  const fetchTickets = async () => {
-    const { data, error } = await supabase
-      .from('tickets')
-      .select('*')
-      .order('created_at', { ascending: false })
-     setTickets(data || [])
-     setLoading(false)
-  }
+        setLoading(false)
+    }
 
-  const total = tickets.length
-  const checkedIn = tickets.filter(t => t.scanned).length
-  const remaining = total - checkedIn
-  const percentage = total > 0 ? Math.round((checkedIn / total) * 100) : 0
+    async function createEvent(e) {
+        e.preventDefault()
 
-  return (
-    <main className="min-h-screen bg-gray-950 text-white p-8">
-      <div className="max-w-4xl mx-auto flex flex-col gap-8">
+        if (!eventName.trim()) {
+            setError('Please enter an event name.')
+            return
+        }
 
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <div className="flex gap-4">
-      <a
-      href="/scan"
-      className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-    >
-      Scanner
+        setCreating(true)
+        setError(null)
 
-    </a>
-          <a
-            href="/admin/generate"
-            className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
-          >
-            + New Ticket
-          </a>
-          </div>
-        </div>
+        const {
+            data: { user },
+        } = await supabase.auth.getUser()
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-gray-900 rounded-2xl p-6 flex flex-col gap-1">
-            <p className="text-gray-400 text-sm">Total Tickets</p>
-            <p className="text-4xl font-bold">{total}</p>
-          </div>
-          <div className="bg-green-900 rounded-2xl p-6 flex flex-col gap-1">
-            <p className="text-green-300 text-sm">Checked In</p>
-            <p className="text-4xl font-bold">{checkedIn}</p>
-          </div>
-          <div className="bg-gray-900 rounded-2xl p-6 flex flex-col gap-1">
-            <p className="text-gray-400 text-sm">Remaining</p>
-            <p className="text-4xl font-bold">{remaining}</p>
-          </div>
-        </div>
+        if (!user) {
+            router.push('/admin/login')
+            return
+        }
 
-        {/* Progress bar */}
-        <div className="bg-gray-900 rounded-2xl p-6 flex flex-col gap-3">
-          <div className="flex justify-between text-sm">
-            <p className="text-gray-400">Check-in Progress</p>
-            <p className="font-semibold">{percentage}%</p>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-4">
-            <div
-              className="bg-green-500 h-4 rounded-full transition-all duration-500"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-        </div>
+        const inviteToken = crypto.randomUUID()
 
-        {/* Attendee list */}
-        <div className="bg-gray-900 rounded-2xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800">
-            <h2 className="font-semibold">Attendees</h2>
-          </div>
+        const { data: event, error: eventError } = await supabase
+            .from('events')
+            .insert({
+                owner_id: user.id,
+                name: eventName.trim(),
+                invite_token: inviteToken,
+            })
+            .select()
+            .single()
 
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+        if (eventError) {
+            setError(eventError.message)
+            setCreating(false)
+            return
+        }
+
+        const { error: memberError } = await supabase
+            .from('event_members')
+            .insert({
+                event_id: event.id,
+                user_id: user.id,
+                role: 'owner',
+            })
+
+        if (memberError) {
+            setError(memberError.message)
+            setCreating(false)
+            return
+        }
+
+        setEventName('')
+        setShowCreate(false)
+        setCreating(false)
+
+        router.push(`/admin/events/${event.id}`)
+    }
+
+    async function logout() {
+        await supabase.auth.signOut()
+        router.push('/admin/login')
+        router.refresh()
+    }
+
+    return (
+        <main className="min-h-screen bg-gray-950 text-white">
+            <div className="max-w-6xl mx-auto px-6 py-8">
+
+                <header className="flex items-center justify-between mb-10">
+                    <div>
+                        <p className="text-gray-400 text-sm">Event Operations</p>
+                        <h1 className="text-3xl font-bold mt-1">
+                            {profile?.full_name
+                                ? `Welcome, ${profile.full_name}`
+                                : 'Dashboard'}
+                        </h1>
+                    </div>
+
+                    <button
+                        onClick={logout}
+                        className="text-gray-400 hover:text-white text-sm"
+                    >
+                        Sign out
+                    </button>
+                </header>
+
+                {error && (
+                    <div className="mb-6 bg-red-950 border border-red-800 text-red-300 rounded-xl px-4 py-3">
+                        {error}
+                    </div>
+                )}
+
+                <section className="flex items-center justify-between mb-5">
+                    <div>
+                        <h2 className="text-xl font-semibold">Your Events</h2>
+                        <p className="text-gray-400 text-sm mt-1">
+                            Create and manage your events from here.
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => setShowCreate(true)}
+                        className="bg-green-600 hover:bg-green-500 px-5 py-2.5 rounded-lg font-semibold transition-colors"
+                    >
+                        + Create Event
+                    </button>
+                </section>
+
+                {loading ? (
+                    <div className="flex justify-center py-20">
+                        <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                ) : events.length === 0 ? (
+                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
+                        <h3 className="text-xl font-semibold">No events yet</h3>
+                        <p className="text-gray-400 mt-2 mb-6">
+                            Create your first event to start adding attendees and generating tickets.
+                        </p>
+                        <button
+                            onClick={() => setShowCreate(true)}
+                            className="bg-green-600 hover:bg-green-500 px-5 py-3 rounded-lg font-semibold"
+                        >
+                            Create Your First Event
+                        </button>
+                    </div>
+                ) : (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {events.map((event) => (
+                            <button
+                                key={event.id}
+                                onClick={() => router.push(`/admin/events/${event.id}`)}
+                                className="text-left bg-gray-900 border border-gray-800 hover:border-green-600 rounded-2xl p-6 transition-colors"
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    <h3 className="text-lg font-semibold">{event.name}</h3>
+                                    <span className="text-xs px-2.5 py-1 rounded-full bg-green-950 text-green-300">
+                                        {event.status}
+                                    </span>
+                                </div>
+
+                                <p className="text-gray-500 text-sm mt-5">
+                                    Created {new Date(event.created_at).toLocaleDateString()}
+                                </p>
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {showCreate && (
+                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-50">
+                        <form
+                            onSubmit={createEvent}
+                            className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl p-6"
+                        >
+                            <div className="flex items-center justify-between mb-6">
+                                <div>
+                                    <h2 className="text-xl font-semibold">Create Event</h2>
+                                    <p className="text-gray-400 text-sm mt-1">
+                                        You will automatically become the event owner.
+                                    </p>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreate(false)}
+                                    className="text-gray-400 hover:text-white text-xl"
+                                >
+                                    ×
+                                </button>
+                            </div>
+
+                            <label className="text-sm text-gray-400 mb-2 block">
+                                Event name
+                            </label>
+
+                            <input
+                                type="text"
+                                value={eventName}
+                                onChange={(e) => setEventName(e.target.value)}
+                                placeholder="e.g. National Sports Day"
+                                autoFocus
+                                className="w-full bg-gray-800 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                            />
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCreate(false)}
+                                    className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-lg py-3 font-semibold"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    disabled={creating}
+                                    className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 rounded-lg py-3 font-semibold"
+                                >
+                                    {creating ? 'Creating...' : 'Create Event'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
             </div>
-          ) : tickets.length === 0 ? (
-            <p className="text-gray-500 text-center py-12">No tickets yet</p>
-          ) : (
-            <div className="divide-y divide-gray-800">
-              {tickets.map(ticket => (
-                <div key={ticket.id} className="px-6 py-4 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{ticket.attendee_name}</p>
-                    <p className="text-gray-400 text-sm">{ticket.email}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <span className={`text-xs px-3 py-1 rounded-full font-semibold ${ticket.scanned ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-300'}`}>
-                      {ticket.scanned ? 'Checked In' : 'Not Yet'}
-                    </span>
-                    {ticket.scanned_at && (
-                      <p className="text-gray-500 text-xs">
-                        {new Date(ticket.scanned_at).toLocaleTimeString()}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-      </div>
-    </main>
-  )
+        </main>
+    )
 }
