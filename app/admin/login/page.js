@@ -293,7 +293,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="mt-2 w-full rounded-lg bg-[#1D1A16] px-4 py-3 text-sm font-semibold text-[#FFF9EE] transition-[background-color,transform] duration-150 hover:bg-[#3C3025] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A97932] disabled:cursor-wait disabled:opacity-60"
+                            className="mt-2 w-full rounded-lg bg-[#1D1A16] px-4 py-3 text-sm font-semibold text-[#FFF9EE] transition-[background-color,color,transform] duration-150 hover:bg-[#C99146] hover:text-[#1D1A16] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A97932] disabled:cursor-wait disabled:opacity-60"
                         >
                             {loading
                                 ? mode === 'login' ? 'Signing in...' : 'Creating account...'
