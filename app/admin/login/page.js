@@ -155,14 +155,25 @@ export default function LoginPage() {
         setMessage(null)
     }
 
-    const fieldClasses = 'w-full rounded-lg border border-[#34445C] bg-[#172237] px-4 py-3 text-sm text-[#F3F6FC] placeholder:text-[#8799B1] outline-none transition-colors duration-150 focus-visible:border-[#3B82F6] focus-visible:ring-2 focus-visible:ring-[#3B82F6]/40'
+    const fieldClasses = 'w-full rounded-lg border border-[#D9CDBB] bg-[#FFFEFA] px-4 py-3 text-sm text-[#1D1A16] placeholder:text-[#80786D] outline-none transition-colors duration-150 focus-visible:border-[#A97932] focus-visible:ring-2 focus-visible:ring-[#A97932]/25'
 
     return (
-        <main className="flex min-h-svh items-center justify-center bg-[#050913] px-6 py-12 font-sans text-[#F3F6FC]">
-            <div className="w-full max-w-[440px]">
-                <header className="mb-8 flex items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#675B43] bg-[#F8F3E7]">
+        <main className="relative isolate flex min-h-svh items-center justify-center overflow-hidden bg-[#EDE3D1] px-6 py-12 font-sans text-[#1D1A16]">
+            <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-0 bg-repeat opacity-[0.22] blur-[3px]"
+                style={{
+                    backgroundImage: "url('/digital-inkabi-pattern.svg')",
+                    backgroundSize: '640px 540px',
+                    maskImage: 'radial-gradient(ellipse at center, transparent 18%, black 82%)',
+                }}
+            />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 bg-[#F8F0E2]/25" />
+
+            <div className="relative z-10 w-full max-w-[440px]">
+                <section className="rounded-2xl border border-[#D6C6AD] bg-[#FFF9EE] p-6 shadow-[0_24px_72px_rgba(64,42,16,0.16)] sm:p-8" aria-labelledby="auth-title">
+                    <header className="mb-7 flex flex-col items-center text-center">
+                        <div className="h-16 w-16 overflow-hidden rounded-xl border border-[#DDCFB7] bg-[#F8F3E7]">
                             <Image
                                 src="/digital-inkabi.jpeg"
                                 alt="Digital Inkabi logo"
@@ -172,36 +183,30 @@ export default function LoginPage() {
                                 className="h-full w-full object-cover"
                             />
                         </div>
-                        <div>
-                            <p className="text-base font-semibold tracking-tight">digital.inkabi</p>
-                            <p className="mt-1 text-xs text-[#A7B7CC]">Event management</p>
-                        </div>
-                    </div>
-                </header>
+                        <p className="mt-3 text-base font-semibold tracking-tight">digital.inkabi</p>
+                        <p className="mt-1 text-xs text-[#6F6658]">Event management</p>
+                    </header>
 
-                <section className="relative overflow-hidden rounded-2xl border border-[#26364D] bg-[#101827] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.2)] sm:p-8" aria-labelledby="auth-title">
-                    <span aria-hidden="true" className="absolute right-8 top-0 h-[3px] w-10 rounded-b bg-[#E32636]" />
-
-                    <div className="mb-7">
-                        <h1 id="auth-title" className="text-[28px] font-medium leading-tight tracking-tight">
+                    <div className="mb-7 text-center">
+                        <h1 id="auth-title" className="text-[28px] font-medium leading-tight tracking-tight text-[#1D1A16]">
                             {mode === 'login' ? 'Organiser access' : 'Create an account'}
                         </h1>
-                        <p className="mt-2 text-sm leading-6 text-[#A7B7CC]">
+                        <p className="mt-2 text-sm leading-6 text-[#665E53]">
                             {mode === 'login'
                                 ? 'Sign in to manage events, tickets and check-ins'
                                 : 'Create an organiser account to manage your events'}
                         </p>
                     </div>
 
-                    <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-[#19263B] p-1" aria-label="Account access mode">
+                    <div className="mb-6 grid grid-cols-2 gap-1 rounded-xl bg-[#EDE5D9] p-1" aria-label="Account access mode">
                         <button
                             type="button"
                             onClick={() => switchMode('login')}
                             aria-pressed={mode === 'login'}
-                            className={`rounded-lg px-2 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B82F6] ${
+                            className={`rounded-lg px-2 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A97932] ${
                                 mode === 'login'
-                                    ? 'bg-[#2B405F] text-white'
-                                    : 'text-[#A7B7CC] hover:bg-[#23344D] hover:text-white'
+                                    ? 'bg-[#FFFEFA] text-[#1D1A16] shadow-[0_1px_3px_rgba(64,42,16,0.09)]'
+                                    : 'text-[#665E53] hover:bg-[#F6EFE5] hover:text-[#1D1A16]'
                             }`}
                         >
                             Sign in
@@ -210,10 +215,10 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => switchMode('signup')}
                             aria-pressed={mode === 'signup'}
-                            className={`rounded-lg px-2 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3B82F6] ${
+                            className={`rounded-lg px-2 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A97932] ${
                                 mode === 'signup'
-                                    ? 'bg-[#2B405F] text-white'
-                                    : 'text-[#A7B7CC] hover:bg-[#23344D] hover:text-white'
+                                    ? 'bg-[#FFFEFA] text-[#1D1A16] shadow-[0_1px_3px_rgba(64,42,16,0.09)]'
+                                    : 'text-[#665E53] hover:bg-[#F6EFE5] hover:text-[#1D1A16]'
                             }`}
                         >
                             Create account
@@ -231,7 +236,7 @@ export default function LoginPage() {
                     >
                         {mode === 'signup' && (
                             <div>
-                                <label htmlFor="organiser-name" className="mb-2 block text-sm text-[#C2D0E1]">Full name</label>
+                                <label htmlFor="organiser-name" className="mb-2 block text-sm text-[#4C453B]">Full name</label>
                                 <input
                                     id="organiser-name"
                                     name="name"
@@ -246,7 +251,7 @@ export default function LoginPage() {
                         )}
 
                         <div>
-                            <label htmlFor="organiser-email" className="mb-2 block text-sm text-[#C2D0E1]">Email address</label>
+                            <label htmlFor="organiser-email" className="mb-2 block text-sm text-[#4C453B]">Email address</label>
                             <input
                                 id="organiser-email"
                                 name="email"
@@ -260,7 +265,7 @@ export default function LoginPage() {
                         </div>
 
                         <div>
-                            <label htmlFor="organiser-password" className="mb-2 block text-sm text-[#C2D0E1]">Password</label>
+                            <label htmlFor="organiser-password" className="mb-2 block text-sm text-[#4C453B]">Password</label>
                             <input
                                 id="organiser-password"
                                 name="password"
@@ -274,13 +279,13 @@ export default function LoginPage() {
                         </div>
 
                         {error && (
-                            <div role="alert" className="rounded-lg border border-[#A73B48] bg-[#3A1821] px-4 py-3 text-sm leading-5 text-[#FFD8DD]">
+                            <div role="alert" className="rounded-lg border border-[#DDA09E] bg-[#FFF1EF] px-4 py-3 text-sm leading-5 text-[#842E2A]">
                                 {error}
                             </div>
                         )}
 
                         {message && (
-                            <div role="status" className="rounded-lg border border-[#357D65] bg-[#153A32] px-4 py-3 text-sm leading-5 text-[#CEF4E3]">
+                            <div role="status" className="rounded-lg border border-[#A6C0A4] bg-[#EEF5EA] px-4 py-3 text-sm leading-5 text-[#285C38]">
                                 {message}
                             </div>
                         )}
@@ -288,7 +293,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="mt-2 w-full rounded-lg bg-[#2563EB] px-4 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#1D4ED8] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#93C5FD] disabled:cursor-wait disabled:opacity-60"
+                            className="mt-2 w-full rounded-lg bg-[#1D1A16] px-4 py-3 text-sm font-semibold text-[#FFF9EE] transition-[background-color,transform] duration-150 hover:bg-[#3C3025] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A97932] disabled:cursor-wait disabled:opacity-60"
                         >
                             {loading
                                 ? mode === 'login' ? 'Signing in...' : 'Creating account...'

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="540" viewBox="0 0 640 540" fill="none" aria-hidden="true">
+  <!-- Hand-drawn rosettes echo the leopard markings inside the DI wordmark. -->
+  <g stroke="#432B17" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M73 92c-14-12-13-30 3-40m16-5c19-1 29 11 29 26m-2 17c-8 15-24 19-37 13"/>
+    <path d="M192 196c-16-3-23-18-18-34m13-13c17-10 34-3 41 11m-2 20c-6 15-19 21-33 18"/>
+    <path d="M512 346c-18-8-23-26-12-41m18-10c20-5 35 6 36 23m-10 18c-9 11-20 15-31 11"/>
+    <path d="M384 468c-12-11-12-27-2-38m16-9c18-2 29 8 32 21m-5 16c-9 11-24 15-35 11"/>
+    <path d="M98 436c-13-7-16-22-9-33m17-10c16-2 28 8 29 21m-11 15c-8 8-17 10-26 7"/>
+    <path d="M550 88c-12-12-11-28 3-37m15-4c17 1 28 13 26 27m-8 16c-8 10-20 13-30 8"/>
+  </g>
+  <g fill="#9B652D">
+    <path d="m93 74 12-5 7 9-5 12-12 2-7-9z"/>
+    <path d="m194 168 11-8 13 7-2 13-13 5-10-7z"/>
+    <path d="m518 315 13-6 12 8-3 12-14 4-9-8z"/>
+    <path d="m394 444 11-7 11 7-2 12-14 4-8-7z"/>
+    <path d="m100 413 9-6 10 7-2 11-11 4-8-7z"/>
+    <path d="m562 69 10-5 10 9-4 11-11 3-7-7z"/>
+  </g>
+  <g fill="#4D321B">
+    <path d="m146 53 9-11 11 6-2 14-14 2z"/>
+    <path d="m245 110 12-8 10 10-5 15-15-3z"/>
+    <path d="m473 250 13-7 9 9-4 12-13 1z"/>
+    <path d="m453 411 8-12 15 2 3 13-13 8z"/>
+    <path d="m52 367 10-10 13 6-1 13-14 2z"/>
+  </g>
+  <!-- Open triangles and diamond borders take their angles from the logo's linework. -->
+  <g stroke="#805628" stroke-width="6" stroke-linejoin="miter" stroke-linecap="square">
+    <path d="m366 37 23 42 24-42-47 0z m58 0 23 42 24-42h-47z m58 0 23 42 24-42h-47z"/>
+    <path d="m344 111 30-30 30 30-30 30-30-30z m69 0 30-30 30 30-30 30-30-30z"/>
+    <path d="m24 278 33 33-33 33m49-66 33 33-33 33m49-66 33 33-33 33"/>
+    <path d="m487 466 24-38 24 38-48 0z m57 0 24-38 24 38h-48z"/>
+  </g>
+  <g stroke="#B07C37" stroke-width="3" stroke-linejoin="miter">
+    <path d="m360 160 24-24 24 24-24 24-24-24z m55 0 24-24 24 24-24 24-24-24z"/>
+    <path d="m22 359 34 34-34 34m50-68 34 34-34 34"/>
+  </g>
+</svg>
