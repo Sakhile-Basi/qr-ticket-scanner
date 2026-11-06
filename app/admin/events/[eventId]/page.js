@@ -78,7 +78,12 @@ async function loadEvent() {
                 invite_token,
                 poster_url,
                 created_at,
-                owner_id
+                owner_id,
+                starts_at,
+                ends_at,
+                venue_name,
+                city,
+                setup_completed_at
             `)
             .eq('id', eventId)
             .single()
@@ -334,13 +339,24 @@ useEffect(() => {
 
                         </div>
 
-                        <span className="self-start text-sm px-3 py-1.5 rounded-full bg-green-950 text-green-300 border border-green-900">
-                            {event.status}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-3 self-start">
+                            <button onClick={() => router.push('/admin/events/' + eventId + '/setup')} className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm font-semibold text-gray-200 transition-colors hover:border-[#C99146] hover:text-[#C99146]">Edit setup</button>
+                            <span className="rounded-full border border-green-900 bg-green-950 px-3 py-1.5 text-sm text-green-300">{event.status}</span>
+                        </div>
 
                     </div>
 
                 </section>
+
+                {!event.setup_completed_at && (
+                    <section className="mb-8 flex flex-col gap-4 rounded-2xl border border-[#D6C6AD] bg-[#FFF9EE] p-5 text-[#1D1A16] sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 className="font-semibold">Event setup isn't finished yet</h2>
+                            <p className="mt-1 text-sm text-[#6F6658]">Add the event dates and review your branding when you're ready. Your tickets and scanning tools remain available.</p>
+                        </div>
+                        <button onClick={() => router.push('/admin/events/' + eventId + '/setup')} className="shrink-0 rounded-xl bg-[#1D1A16] px-4 py-3 text-sm font-semibold text-[#FFF9EE] transition-colors hover:bg-[#C99146] hover:text-[#1D1A16]">Continue setup →</button>
+                    </section>
+                )}
 
                 {/* Event Poster */}
 <section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">

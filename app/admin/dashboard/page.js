@@ -44,7 +44,7 @@ export default function DashboardPage() {
 
                 supabase
                     .from('events')
-                    .select('id, name, status, poster_url, created_at')
+                    .select('id, name, status, poster_url, created_at, starts_at, venue_name, city, setup_completed_at')
                     .order('created_at', { ascending: false }),
             ])
 
@@ -119,7 +119,7 @@ export default function DashboardPage() {
         setShowCreate(false)
         setCreating(false)
 
-        router.push(`/admin/events/${event.id}`)
+        router.push(`/admin/events/${event.id}/setup`)
     }
 
     async function logout() {
@@ -166,7 +166,7 @@ export default function DashboardPage() {
 
                     <button
                         onClick={() => setShowCreate(true)}
-                        className="bg-green-600 hover:bg-green-500 px-5 py-2.5 rounded-lg font-semibold transition-colors"
+                        className="rounded-xl bg-[#FFF9EE] px-5 py-2.5 font-semibold text-[#1D1A16] transition-colors hover:bg-[#C99146] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#A97932]"
                     >
                         + Create Event
                     </button>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
                         </p>
                         <button
                             onClick={() => setShowCreate(true)}
-                            className="bg-green-600 hover:bg-green-500 px-5 py-3 rounded-lg font-semibold"
+                            className="rounded-xl bg-[#FFF9EE] px-5 py-3 font-semibold text-[#1D1A16] transition-colors hover:bg-[#C99146]"
                         >
                             Create Your First Event
                         </button>
@@ -213,29 +213,30 @@ export default function DashboardPage() {
                 )}
 
                 {showCreate && (
-                    <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 z-50">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1D1A16]/75 p-6">
+                        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-repeat opacity-[0.12] blur-[3px]" style={{ backgroundImage: "url('/digital-inkabi-pattern.svg')", backgroundSize: "640px 540px" }} />
                         <form
                             onSubmit={createEvent}
-                            className="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl p-6"
+                            className="relative z-10 w-full max-w-md rounded-2xl border border-[#D6C6AD] bg-[#FFF9EE] p-6 text-[#1D1A16] shadow-[0_24px_72px_rgba(64,42,16,0.2)]"
                         >
                             <div className="flex items-center justify-between mb-6">
                                 <div>
-                                    <h2 className="text-xl font-semibold">Create Event</h2>
-                                    <p className="text-gray-400 text-sm mt-1">
-                                        You will automatically become the event owner.
+                                    <div className="flex items-center gap-3"><img src="/digital-inkabi.jpeg" alt="" className="h-12 w-12 rounded-lg border border-[#DDCFB7] object-cover" /><h2 className="text-xl font-semibold">Create Event</h2></div>
+                                    <p className="mt-1 text-sm text-[#6F6658]">
+                                        Create the event now, then complete its setup in a few steps.
                                     </p>
                                 </div>
 
                                 <button
                                     type="button"
                                     onClick={() => setShowCreate(false)}
-                                    className="text-gray-400 hover:text-white text-xl"
+                                    className="text-[#675C4D] hover:text-[#1D1A16] text-xl"
                                 >
                                     ×
                                 </button>
                             </div>
 
-                            <label className="text-sm text-gray-400 mb-2 block">
+                            <label className="mb-2 block text-sm font-medium text-[#4C453B]">
                                 Event name
                             </label>
 
@@ -245,14 +246,14 @@ export default function DashboardPage() {
                                 onChange={(e) => setEventName(e.target.value)}
                                 placeholder="e.g. National Sports Day"
                                 autoFocus
-                                className="w-full bg-gray-800 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                className="w-full rounded-xl border border-[#D9CDBB] bg-white px-4 py-3 text-[#1D1A16] placeholder:text-[#80786D] outline-none focus-visible:border-[#A97932] focus-visible:ring-2 focus-visible:ring-[#A97932]/25"
                             />
 
                             <div className="flex gap-3 mt-6">
                                 <button
                                     type="button"
                                     onClick={() => setShowCreate(false)}
-                                    className="flex-1 bg-gray-800 hover:bg-gray-700 rounded-lg py-3 font-semibold"
+                                    className="flex-1 rounded-xl border border-[#CFC0AA] bg-[#FFF9EE] py-3 font-semibold text-[#1D1A16] transition-colors hover:bg-[#EEE1CD]"
                                 >
                                     Cancel
                                 </button>
@@ -260,7 +261,7 @@ export default function DashboardPage() {
                                 <button
                                     type="submit"
                                     disabled={creating}
-                                    className="flex-1 bg-green-600 hover:bg-green-500 disabled:opacity-50 rounded-lg py-3 font-semibold"
+                                    className="flex-1 rounded-xl bg-[#1D1A16] py-3 font-semibold text-[#FFF9EE] transition-colors hover:bg-[#C99146] hover:text-[#1D1A16] disabled:opacity-50"
                                 >
                                     {creating ? 'Creating...' : 'Create Event'}
                                 </button>
