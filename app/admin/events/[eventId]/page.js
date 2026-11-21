@@ -4,247 +4,165 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+const ink = '#1D1A16'
+const cream = '#FFF9EE'
+const muted = '#756B5D'
+const line = '#E5D8C4'
+const gold = '#C99146'
+
+function formatDate(value, options = { dateStyle: 'medium' }) {
+    if (!value) return 'Not set'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return 'Not set'
+    return new Intl.DateTimeFormat('en-ZA', options).format(date)
+}
+
+function formatEventDate(start, end) {
+    if (!start) return 'Dates not added yet'
+    if (!end) return formatDate(start)
+    const startDate = new Date(start)
+    const endDate = new Date(end)
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return 'Dates not added yet'
+
+    const sameDay = startDate.toDateString() === endDate.toDateString()
+    if (sameDay) {
+        return `${formatDate(start, { day: 'numeric', month: 'long', year: 'numeric' })} · ${formatDate(start, { hour: '2-digit', minute: '2-digit' })}–${formatDate(end, { hour: '2-digit', minute: '2-digit' })}`
+    }
+    return `${formatDate(start)} – ${formatDate(end)}`
+}
+
 export default function EventManagementPage() {
     const params = useParams()
     const router = useRouter()
     const supabase = createClient()
-
     const eventId = params.eventId
 
+    const [event, setEvent] = useState(null)
     const [posterFile, setPosterFile] = useState(null)
     const [uploadingPoster, setUploadingPoster] = useState(false)
+    const [stats, setStats] = useState({ attendees: 0, tickets: 0, checkedIn: 0, teamMembers: 0 })
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
-    const [event, setEvent] = useState(null)
+    useEffect(() => {
+        if (!eventId) return
 
-    const [stats, setStats] = useState({
-    attendees: 0,
-    tickets: 0,
-    checkedIn: 0,
-    teamMembers: 0,
-})
+        let cancelled = false
 
-const [loading, setLoading] = useState(true)
+        async function loadEvent() {
+            setLoading(true)
+            setError(null)
 
-const [error, setError] = useState(null)
+            try {
+                const { data: { user }, error: userError } = await supabase.auth.getUser()
+                if (userError || !user) {
+                    router.push('/admin/login')
+                    return
+                }
 
+                const { data: membership, error: membershipError } = await supabase
+                    .from('event_members')
+                    .select('id, role')
+                    .eq('event_id', eventId)
+                    .eq('user_id', user.id)
+                    .single()
 
-async function loadEvent() {
-    setLoading(true)
-    setError(null)
+                if (membershipError || !membership) {
+                    throw new Error('You do not have access to this event.')
+                }
 
-    try {
-        console.log('EVENT 1 - eventId:', eventId)
+                const { data, error: eventError } = await supabase
+                    .from('events')
+                    .select('id, name, status, invite_token, poster_url, created_at, owner_id, description, starts_at, ends_at, timezone, venue_name, venue_address, city, setup_completed_at')
+                    .eq('id', eventId)
+                    .single()
 
-        const {
-            data: { user },
-            error: userError,
-        } = await supabase.auth.getUser()
+                if (eventError || !data) {
+                    throw new Error(eventError?.message || 'This event could not be found.')
+                }
 
-        console.log('EVENT 2 - user:', user?.id)
-        console.log('EVENT 2 - auth error:', userError)
+                const [
+                    { count: ticketCount, error: ticketError },
+                    { count: checkedInCount, error: checkedInError },
+                    { count: teamCount, error: teamError },
+                ] = await Promise.all([
+                    supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('event_id', eventId),
+                    supabase.from('tickets').select('*', { count: 'exact', head: true }).eq('event_id', eventId).eq('status', 'used'),
+                    supabase.from('event_members').select('*', { count: 'exact', head: true }).eq('event_id', eventId),
+                ])
 
-        if (userError || !user) {
-            router.push('/admin/login')
-            return
+                if (ticketError || checkedInError || teamError) {
+                    throw new Error(ticketError?.message || checkedInError?.message || teamError?.message || 'Unable to load event statistics.')
+                }
+
+                if (!cancelled) {
+                    setEvent(data)
+                    setStats({
+                        attendees: ticketCount || 0,
+                        tickets: ticketCount || 0,
+                        checkedIn: checkedInCount || 0,
+                        teamMembers: teamCount || 0,
+                    })
+                }
+            } catch (loadError) {
+                if (!cancelled) setError(loadError?.message || 'Something went wrong while loading the event.')
+            } finally {
+                if (!cancelled) setLoading(false)
+            }
         }
 
-        const {
-            data: membership,
-            error: membershipError,
-        } = await supabase
-            .from('event_members')
-            .select('id, role')
-            .eq('event_id', eventId)
-            .eq('user_id', user.id)
-            .single()
-
-        console.log('EVENT 3 - membership:', membership)
-        console.log('EVENT 3 - membership error:', membershipError)
-
-        if (membershipError || !membership) {
-            setError('You do not have access to this event.')
-            return
-        }
-
-        const {
-            data,
-            error: eventError,
-        } = await supabase
-            .from('events')
-            .select(`
-                id,
-                name,
-                status,
-                invite_token,
-                poster_url,
-                created_at,
-                owner_id,
-                starts_at,
-                ends_at,
-                venue_name,
-                city,
-                setup_completed_at
-            `)
-            .eq('id', eventId)
-            .single()
-
-        console.log('EVENT 4 - event:', data)
-        console.log('EVENT 4 - event error:', eventError)
-
-        if (eventError || !data) {
-            setError(
-                eventError?.message ||
-                'This event could not be found.'
-            )
-            return
-        }
-
-        setEvent(data)
-
-        const [
-            { count: ticketCount, error: ticketError },
-            { count: checkedInCount, error: checkedInError },
-            { count: teamCount, error: teamError },
-        ] = await Promise.all([
-            supabase
-                .from('tickets')
-                .select('*', {
-                    count: 'exact',
-                    head: true,
-                })
-                .eq('event_id', eventId),
-
-            supabase
-                .from('tickets')
-                .select('*', {
-                    count: 'exact',
-                    head: true,
-                })
-                .eq('event_id', eventId)
-                .eq('status', 'used'),
-
-            supabase
-                .from('event_members')
-                .select('*', {
-                    count: 'exact',
-                    head: true,
-                })
-                .eq('event_id', eventId),
-        ])
-
-        console.log('EVENT 5 - ticket error:', ticketError)
-        console.log('EVENT 5 - checked in error:', checkedInError)
-        console.log('EVENT 5 - team error:', teamError)
-
-        if (
-            ticketError ||
-            checkedInError ||
-            teamError
-        ) {
-            setError(
-                ticketError?.message ||
-                checkedInError?.message ||
-                teamError?.message ||
-                'Unable to load event statistics.'
-            )
-
-            return
-        }
-
-        setStats({
-            attendees: ticketCount || 0,
-            tickets: ticketCount || 0,
-            checkedIn: checkedInCount || 0,
-            teamMembers: teamCount || 0,
-        })
-    } catch (error) {
-        console.error('EVENT LOAD CRASH:', error)
-
-        setError(
-            error?.message ||
-            'Something went wrong while loading the event.'
-        )
-    } finally {
-        setLoading(false)
-    }
-}
-
-useEffect(() => {
-    if (!eventId) {
-        return
-    }
-
-    void (async () => {
-        await loadEvent()
-    })()
-}, [eventId])
+        loadEvent()
+        return () => { cancelled = true }
+    }, [eventId, router, supabase])
 
     async function handlePosterUpload() {
-    if (!posterFile) {
-        setError('Please choose an image first.')
-        return
-    }
+        if (!posterFile) {
+            setError('Choose an image before uploading.')
+            return
+        }
+        if (!posterFile.type.startsWith('image/')) {
+            setError('Please choose a valid image file.')
+            return
+        }
+        if (posterFile.size > 5 * 1024 * 1024) {
+            setError('Poster image must be smaller than 5MB.')
+            return
+        }
 
-    if (!posterFile.type.startsWith('image/')) {
-        setError('Please choose a valid image file.')
-        return
-    }
+        setUploadingPoster(true)
+        setError(null)
 
-    const maxSize = 5 * 1024 * 1024
+        const extension = posterFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const filePath = `${eventId}/poster-${Date.now()}.${extension}`
 
-    if (posterFile.size > maxSize) {
-        setError('Poster image must be smaller than 5MB.')
-        return
-    }
+        const { error: uploadError } = await supabase.storage
+            .from('event-posters')
+            .upload(filePath, posterFile, { contentType: posterFile.type })
 
-    setUploadingPoster(true)
-    setError(null)
+        if (uploadError) {
+            setError(uploadError.message)
+            setUploadingPoster(false)
+            return
+        }
 
-    const fileExtension =
-        posterFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+        const { data: publicUrlData } = supabase.storage.from('event-posters').getPublicUrl(filePath)
+        const posterUrl = publicUrlData.publicUrl
 
-    const filePath =
-        `${eventId}/poster-${Date.now()}.${fileExtension}`
+        const { error: updateError } = await supabase
+            .from('events')
+            .update({ poster_url: posterUrl })
+            .eq('id', eventId)
 
-    const { error: uploadError } = await supabase.storage
-        .from('event-posters')
-        .upload(filePath, posterFile, {
-            contentType: posterFile.type,
-        })
+        if (updateError) {
+            setError(updateError.message)
+            setUploadingPoster(false)
+            return
+        }
 
-    if (uploadError) {
-        setError(uploadError.message)
+        setEvent(current => ({ ...current, poster_url: posterUrl }))
+        setPosterFile(null)
         setUploadingPoster(false)
-        return
     }
-
-    const { data: publicUrlData } = supabase.storage
-        .from('event-posters')
-        .getPublicUrl(filePath)
-
-    const posterUrl = publicUrlData.publicUrl
-
-    const { error: updateError } = await supabase
-        .from('events')
-        .update({
-            poster_url: posterUrl,
-        })
-        .eq('id', eventId)
-
-    if (updateError) {
-        setError(updateError.message)
-        setUploadingPoster(false)
-        return
-    }
-
-    setEvent((currentEvent) => ({
-        ...currentEvent,
-        poster_url: posterUrl,
-    }))
-
-    setPosterFile(null)
-    setUploadingPoster(false)
-}
 
     async function logout() {
         await supabase.auth.signOut()
@@ -252,374 +170,187 @@ useEffect(() => {
         router.refresh()
     }
 
-    if (loading || (!event && !error)) {
-    return (
-        <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-            <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
-        </main>
-    )
-}
+    if (loading) {
+        return (
+            <main className="min-h-screen flex items-center justify-center" style={{ background: cream, color: ink }}>
+                <div className="h-9 w-9 animate-spin rounded-full border-4 border-[#D9C9B0] border-t-[#A97932]" aria-label="Loading event" />
+            </main>
+        )
+    }
 
-    if (!event && error) {
-    return (
-        <main className="min-h-screen bg-gray-950 text-white">
-            <div className="max-w-4xl mx-auto px-6 py-10">
-
-                <button
-                    onClick={() => router.push('/admin/dashboard')}
-                    className="text-gray-400 hover:text-white text-sm mb-8"
-                >
-                    ← Back to Dashboard
-                </button>
-
-                <div className="bg-red-950 border border-red-800 text-red-300 rounded-xl px-5 py-4">
-                    <h1 className="font-semibold text-lg">
-                        Unable to load event
-                    </h1>
-
-                    <p className="text-sm mt-2">
-                        {error}
-                    </p>
+    if (!event) {
+        return (
+            <main className="min-h-screen px-6 py-12" style={{ background: cream, color: ink }}>
+                <div className="mx-auto max-w-3xl rounded-2xl border bg-white p-8" style={{ borderColor: line }}>
+                    <button onClick={() => router.push('/admin/dashboard')} className="mb-6 text-sm font-medium hover:underline" style={{ color: muted }}>← Back to events</button>
+                    <h1 className="text-2xl font-semibold">Unable to open this event</h1>
+                    <p className="mt-3 text-sm" style={{ color: muted }}>{error || 'Something went wrong.'}</p>
                 </div>
+            </main>
+        )
+    }
 
-            </div>
-        </main>
-    )
-}
+    const setupComplete = Boolean(event.setup_completed_at)
+    const location = [event.venue_name, event.city].filter(Boolean).join(' · ')
 
     return (
-        <main className="min-h-screen bg-gray-950 text-white">
+        <main className="min-h-screen" style={{ background: cream, color: ink }}>
+            <div className="pointer-events-none fixed inset-0 -z-0 bg-[url('/digital-inkabi-pattern.svg')] bg-repeat opacity-[0.035]" />
 
-            <div className="max-w-6xl mx-auto px-6 py-8">
-
-                {/* Header */}
-                <header className="flex items-center justify-between mb-8">
-
-                    <button
-                        onClick={() => router.push('/admin/dashboard')}
-                        className="text-gray-400 hover:text-white text-sm"
-                    >
-                        ← Back to Dashboard
+            <div className="relative mx-auto max-w-7xl px-5 py-6 sm:px-8 lg:py-10">
+                <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
+                    <button onClick={() => router.push('/admin/dashboard')} className="inline-flex items-center gap-2 text-sm font-semibold transition-colors hover:text-[#A97932]" style={{ color: muted }}>
+                        <span aria-hidden="true">←</span> All events
                     </button>
-
-                    <button
-                        onClick={logout}
-                        className="text-gray-400 hover:text-white text-sm"
-                    >
-                        Sign out
-                    </button>
-
+                    <div className="flex items-center gap-3">
+                        <span className="hidden text-xs font-medium sm:inline" style={{ color: muted }}>DIGITAL INKABI · EVENT OPERATIONS</span>
+                        <button onClick={logout} className="rounded-full border px-4 py-2 text-sm font-semibold transition-colors hover:bg-[#EEE1CD]" style={{ borderColor: line }}>Sign out</button>
+                    </div>
                 </header>
 
                 {error && (
-    <div className="mb-6 bg-red-950 border border-red-800 text-red-300 rounded-xl px-5 py-4">
-        {error}
-    </div>
-)}
+                    <div role="alert" className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>
+                )}
 
-                {/* Event heading */}
-                <section className="mb-8">
+                <section className="mb-8 overflow-hidden rounded-3xl border bg-white shadow-[0_12px_40px_rgba(64,42,16,0.06)]" style={{ borderColor: line }}>
+                    <div className="grid lg:grid-cols-[1fr_280px]">
+                        <div className="p-6 sm:p-9">
+                            <div className="mb-5 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-[#F3EBDD] px-3 py-1 text-xs font-semibold uppercase tracking-wide" style={{ color: '#72552D' }}>Event overview</span>
+                                <span className="rounded-full border px-3 py-1 text-xs font-semibold capitalize" style={{ borderColor: '#C8DCCB', background: '#EFF6EF', color: '#315B39' }}>{event.status}</span>
+                                <span className="rounded-full border px-3 py-1 text-xs font-semibold" style={{ borderColor: setupComplete ? '#C8DCCB' : '#E8D4B4', background: setupComplete ? '#EFF6EF' : '#FBF4E8', color: setupComplete ? '#315B39' : '#805D2E' }}>
+                                    {setupComplete ? 'Setup complete' : 'Setup incomplete'}
+                                </span>
+                            </div>
 
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-5">
-
-                        <div>
-
-                            <p className="text-green-400 text-sm font-medium">
-                                Event Management
+                            <h1 className="max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">{event.name}</h1>
+                            <p className="mt-4 max-w-2xl text-sm leading-6 sm:text-base" style={{ color: muted }}>
+                                {event.description || 'Your event workspace. Manage attendees, tickets, entry scanning and your event team from here.'}
                             </p>
 
-                            <h1 className="text-3xl md:text-4xl font-bold mt-2">
-                                {event.name}
-                            </h1>
+                            <div className="mt-7 grid gap-4 border-t pt-6 sm:grid-cols-2" style={{ borderColor: line }}>
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: muted }}>Date and time</p>
+                                    <p className="mt-2 text-sm font-semibold">{formatEventDate(event.starts_at, event.ends_at)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: muted }}>Location</p>
+                                    <p className="mt-2 text-sm font-semibold">{location || 'Venue not added yet'}</p>
+                                    {event.venue_address && <p className="mt-1 text-xs" style={{ color: muted }}>{event.venue_address}</p>}
+                                </div>
+                            </div>
 
-                            <p className="text-gray-400 mt-2">
-                                Created{' '}
-                                {new Date(event.created_at).toLocaleDateString()}
-                            </p>
-
+                            <div className="mt-7 flex flex-wrap gap-3">
+                                <button onClick={() => router.push(`/admin/events/${eventId}/setup`)} className="rounded-xl px-5 py-3 text-sm font-semibold transition-colors hover:bg-[#C99146] hover:text-[#1D1A16]" style={{ background: ink, color: cream }}>
+                                    {setupComplete ? 'Edit event details' : 'Continue event setup'}
+                                </button>
+                                <p className="self-center text-xs" style={{ color: muted }}>Created {formatDate(event.created_at)}</p>
+                            </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 self-start">
-                            <button onClick={() => router.push('/admin/events/' + eventId + '/setup')} className="rounded-lg border border-gray-700 px-3 py-1.5 text-sm font-semibold text-gray-200 transition-colors hover:border-[#C99146] hover:text-[#C99146]">Edit setup</button>
-                            <span className="rounded-full border border-green-900 bg-green-950 px-3 py-1.5 text-sm text-green-300">{event.status}</span>
+                        <div className="relative min-h-[240px] bg-[#F0E7D8] lg:min-h-full">
+                            {event.poster_url ? (
+                                <img src={event.poster_url} alt={`${event.name} poster`} className="absolute inset-0 h-full w-full object-cover" />
+                            ) : (
+                                <div className="flex h-full min-h-[240px] flex-col items-center justify-center px-6 text-center">
+                                    <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#D9C9B0] bg-[#FFF9EE] text-2xl" aria-hidden="true">DI</div>
+                                    <p className="text-sm font-semibold">Your event poster</p>
+                                    <p className="mt-1 max-w-[190px] text-xs" style={{ color: muted }}>Add artwork to give your event its own identity.</p>
+                                </div>
+                            )}
                         </div>
-
                     </div>
-
                 </section>
 
-                {!event.setup_completed_at && (
-                    <section className="mb-8 flex flex-col gap-4 rounded-2xl border border-[#D6C6AD] bg-[#FFF9EE] p-5 text-[#1D1A16] sm:flex-row sm:items-center sm:justify-between">
+                {!setupComplete && (
+                    <section className="mb-8 flex flex-col gap-4 rounded-2xl border bg-[#F7EFDF] p-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: '#E4D1B2' }}>
                         <div>
-                            <h2 className="font-semibold">Event setup isn't finished yet</h2>
-                            <p className="mt-1 text-sm text-[#6F6658]">Add the event dates and review your branding when you're ready. Your tickets and scanning tools remain available.</p>
+                            <h2 className="font-semibold">Finish setting up this event</h2>
+                            <p className="mt-1 text-sm" style={{ color: muted }}>Add the required dates and review your event details. Your management tools remain available while setup is incomplete.</p>
                         </div>
-                        <button onClick={() => router.push('/admin/events/' + eventId + '/setup')} className="shrink-0 rounded-xl bg-[#1D1A16] px-4 py-3 text-sm font-semibold text-[#FFF9EE] transition-colors hover:bg-[#C99146] hover:text-[#1D1A16]">Continue setup →</button>
+                        <button onClick={() => router.push(`/admin/events/${eventId}/setup`)} className="shrink-0 rounded-xl px-4 py-3 text-sm font-semibold" style={{ background: ink, color: cream }}>Continue setup →</button>
                     </section>
                 )}
 
-                {/* Event Poster */}
-<section className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
-
-    <div className="flex flex-col lg:flex-row gap-6">
-
-        <div className="w-full lg:w-64">
-
-            {event.poster_url ? (
-                <img
-                    src={event.poster_url}
-                    alt={`${event.name} poster`}
-                    className="w-full aspect-[4/5] object-cover rounded-xl border border-gray-800"
-                />
-            ) : (
-                <div className="w-full aspect-[4/5] bg-gray-800 rounded-xl flex items-center justify-center text-gray-500 text-sm">
-                    No poster uploaded
-                </div>
-            )}
-
-        </div>
-
-        <div className="flex-1">
-
-            <h2 className="text-lg font-semibold">
-                Event Poster
-            </h2>
-
-            <p className="text-gray-400 text-sm mt-2">
-                This image will be used on tickets generated for this event.
-            </p>
-
-            <div className="mt-5">
-
-                <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                        setPosterFile(e.target.files?.[0] || null)
-                        setError(null)
-                    }}
-                    className="block w-full text-sm text-gray-400
-                        file:mr-4
-                        file:py-2.5
-                        file:px-4
-                        file:rounded-lg
-                        file:border-0
-                        file:bg-gray-800
-                        file:text-white
-                        hover:file:bg-gray-700"
-                />
-
-            </div>
-
-            {posterFile && (
-                <p className="text-gray-500 text-sm mt-3">
-                    Selected: {posterFile.name}
-                </p>
-            )}
-
-            <button
-                onClick={handlePosterUpload}
-                disabled={!posterFile || uploadingPoster}
-                className="mt-5 bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-lg font-semibold"
-            >
-                {uploadingPoster
-                    ? 'Uploading...'
-                    : event.poster_url
-                        ? 'Replace Poster'
-                        : 'Upload Poster'}
-            </button>
-
-        </div>
-
-    </div>
-
-</section>
-
-                {/* Overview */}
-                <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                        <p className="text-gray-400 text-sm">
-                            Attendees
-                        </p>
-
-                       <p className="text-3xl font-bold mt-2">
-                          {stats.attendees}
-                      </p>
-                    </div>
-
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                        <p className="text-gray-400 text-sm">
-                            Tickets
-                        </p>
-
-                        <p className="text-3xl font-bold mt-2">
-                            {stats.tickets}
-                        </p>
-                    </div>
-
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                        <p className="text-gray-400 text-sm">
-                            Checked In
-                        </p>
-
-                        <p className="text-3xl font-bold mt-2">
-                         {stats.checkedIn}
-                       </p>
-                    </div>
-
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                        <p className="text-gray-400 text-sm">
-                            Team Members
-                        </p>
-
-                        <p className="text-3xl font-bold mt-2">
-                            {stats.teamMembers}
-                        </p>
-                    </div>
-
-                </section>
-
-                {/* Main management options */}
-                <section>
-
-                    <div className="mb-5">
-                        <h2 className="text-xl font-semibold">
-                            Manage Event
-                        </h2>
-
-                        <p className="text-gray-400 text-sm mt-1">
-                            Manage every part of this event from one place.
-                        </p>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 gap-5">
-
-                        {/* Attendees */}
-                        <button 
-                        onClick={() => router.push(`/admin/events/${eventId}/attendees`)}
-                            className="text-left bg-gray-900 border border-gray-800 hover:border-green-600 rounded-2xl p-6 transition-colors"
-                        >
-                            <div className="text-3xl mb-4">
-                                👥
-                            </div>
-
-                            <h3 className="text-lg font-semibold">
-                                Attendees
-                            </h3>
-
-                            <p className="text-gray-400 text-sm mt-2">
-                                Add and manage people attending your event.
-                            </p>
-
-                            <p className="text-green-400 text-sm mt-5">
-                                Manage attendees →
-                            </p>
-                        </button>
-
-                        {/* Tickets */}
-                        <button
-                            onClick={() =>
-                            router.push(`/admin/events/${eventId}/tickets`)
-                            } 
-                            className="text-left bg-gray-900 border border-gray-800 hover:border-green-600 rounded-2xl p-6 transition-colors"
-                        >
-                            <div className="text-3xl mb-4">
-                                🎟️
-                            </div>
-
-                            <h3 className="text-lg font-semibold">
-                                Tickets
-                            </h3>
-
-                            <p className="text-gray-400 text-sm mt-2">
-                                Generate and manage tickets for this event.
-                            </p>
-
-                            <p className="text-green-400 text-sm mt-5">
-                                Manage tickets →
-                            </p>
-                        </button>
-
-                        {/* Scanner */}
-                        <button
-                            onClick={() =>
-                           router.push(`/admin/events/${eventId}/scanner`)
-                           }
-                            className="text-left bg-gray-900 border border-gray-800 hover:border-green-600 rounded-2xl p-6 transition-colors"
-                        >
-                            <div className="text-3xl mb-4">
-                                📷
-                            </div>
-
-                            <h3 className="text-lg font-semibold">
-                                Scan Tickets
-                            </h3>
-
-                            <p className="text-gray-400 text-sm mt-2">
-                                Scan QR tickets and record attendance.
-                            </p>
-
-                            <p className="text-green-400 text-sm mt-5">
-                                Open scanner →
-                            </p>
-                        </button>
-
-                        {/* Team */}
-                        <button
-                            onClick={() =>
-                            router.push(
-                            `/admin/events/${eventId}/team`
-                            )
-                        }
-                            className="text-left bg-gray-900 border border-gray-800 hover:border-green-600 rounded-2xl p-6 transition-colors"
-                        >
-                            <div className="text-3xl mb-4">
-                                🧑‍💼
-                            </div>
-
-                            <h3 className="text-lg font-semibold">
-                                Team
-                            </h3>
-
-                            <p className="text-gray-400 text-sm mt-2">
-                                Invite staff and manage event permissions.
-                            </p>
-
-                            <p className="text-green-400 text-sm mt-5">
-                                Manage team →
-                            </p>
-                        </button>
-
-                    </div>
-
-                </section>
-
-                {/* Event information */}
-                <section className="mt-8 bg-gray-900 border border-gray-800 rounded-2xl p-6">
-
-                    <h2 className="text-lg font-semibold">
-                        Event Information
-                    </h2>
-
-                    <div className="mt-5 space-y-4">
-
+                <section className="mb-10">
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
                         <div>
-                            <p className="text-gray-500 text-sm">
-                                Event ID
-                            </p>
-
-                            <p className="text-gray-300 text-sm font-mono mt-1 break-all">
-                                {event.id}
-                            </p>
+                            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9A713B' }}>At a glance</p>
+                            <h2 className="mt-1 text-xl font-semibold">Event activity</h2>
                         </div>
-
+                        <p className="text-xs" style={{ color: muted }}>Live totals for this event</p>
                     </div>
-
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                        {[
+                            ['Attendees', stats.attendees, 'People registered'],
+                            ['Tickets', stats.tickets, 'Tickets generated'],
+                            ['Checked in', stats.checkedIn, 'Successful entries'],
+                            ['Team members', stats.teamMembers, 'People with access'],
+                        ].map(([label, value, helper]) => (
+                            <div key={label} className="rounded-2xl border bg-white p-5 sm:p-6" style={{ borderColor: line }}>
+                                <p className="text-sm font-medium" style={{ color: muted }}>{label}</p>
+                                <p className="mt-3 text-3xl font-semibold tabular-nums">{value}</p>
+                                <p className="mt-1 text-xs" style={{ color: muted }}>{helper}</p>
+                            </div>
+                        ))}
+                    </div>
                 </section>
 
-            </div>
+                <section className="mb-10">
+                    <div className="mb-5">
+                        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9A713B' }}>Your workspace</p>
+                        <h2 className="mt-1 text-xl font-semibold">Manage this event</h2>
+                        <p className="mt-1 text-sm" style={{ color: muted }}>Choose a tool to continue managing your event.</p>
+                    </div>
 
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {[
+                            { title: 'Attendees', description: 'Add guests and manage your attendee list.', action: 'Manage attendees', route: 'attendees', number: '01' },
+                            { title: 'Tickets', description: 'Generate, view and distribute unique QR tickets.', action: 'Manage tickets', route: 'tickets', number: '02' },
+                            { title: 'Entry scanner', description: 'Scan QR tickets and record guest check-ins.', action: 'Open scanner', route: 'scanner', number: '03' },
+                            { title: 'Event team', description: 'Invite staff and manage who can access this event.', action: 'Manage team', route: 'team', number: '04' },
+                        ].map(item => (
+                            <button key={item.route} onClick={() => router.push(`/admin/events/${eventId}/${item.route}`)} className="group rounded-2xl border bg-white p-6 text-left transition-all hover:-translate-y-0.5 hover:border-[#C99146] hover:shadow-[0_12px_30px_rgba(64,42,16,0.08)]" style={{ borderColor: line }}>
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">{item.title}</h3>
+                                        <p className="mt-2 max-w-sm text-sm leading-6" style={{ color: muted }}>{item.description}</p>
+                                    </div>
+                                    <span className="text-xs font-semibold tracking-widest" style={{ color: '#A97932' }}>{item.number}</span>
+                                </div>
+                                <p className="mt-6 text-sm font-semibold transition-colors group-hover:text-[#A97932]">{item.action} <span aria-hidden="true">→</span></p>
+                            </button>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="rounded-2xl border bg-white p-6 sm:p-7" style={{ borderColor: line }}>
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-lg">
+                            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#9A713B' }}>Event branding</p>
+                            <h2 className="mt-1 text-lg font-semibold">Event poster</h2>
+                            <p className="mt-2 text-sm leading-6" style={{ color: muted }}>The poster is used as part of the visual identity on tickets generated for this event. JPG, PNG and other browser-supported image formats up to 5MB.</p>
+                        </div>
+                        <div className="flex w-full flex-col gap-3 lg:max-w-md">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={e => { setPosterFile(e.target.files?.[0] || null); setError(null) }}
+                                className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-[#F3EBDD] file:px-4 file:py-2.5 file:font-semibold file:text-[#1D1A16] hover:file:bg-[#E9DCC6]"
+                            />
+                            {posterFile && <p className="text-xs" style={{ color: muted }}>Selected: {posterFile.name}</p>}
+                            <button onClick={handlePosterUpload} disabled={!posterFile || uploadingPoster} className="rounded-xl px-5 py-3 text-sm font-semibold transition-colors hover:bg-[#C99146] hover:text-[#1D1A16] disabled:cursor-not-allowed disabled:opacity-40" style={{ background: ink, color: cream }}>
+                                {uploadingPoster ? 'Uploading poster…' : event.poster_url ? 'Replace poster' : 'Upload poster'}
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <footer className="mt-10 flex flex-wrap items-center justify-between gap-3 border-t pt-5 text-xs" style={{ borderColor: line, color: muted }}>
+                    <span>Digital Inkabi · Event Operations</span>
+                    <span>Event created {formatDate(event.created_at)}</span>
+                </footer>
+            </div>
         </main>
     )
 }
